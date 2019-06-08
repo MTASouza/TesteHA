@@ -1,48 +1,28 @@
 const fs = require('fs');
 const mysql = require('mysql');
-const connection = mysql.createConnection({
-    host:  '',
-    port:  ,
-    user: '',
-    password:  '',
-});
 
 
-connection.connect(function(err){
+connectiondb('host');
+
+function connectiondb(host) {
+    const connection = mysql.createConnection({
+        host:  host,
+        port:  port,
+        user: 'user',
+        password:  'senha',
+    });
+
+    connection.connect(function(err){
    
-  try {
-    if(err) throw new Error(error);
-      fs.appendFile('error.log', 'Deu certo', (err) => {
-        if (err) 
-          throw err;
+        try {
+          if(err) throw new Error(error);
+            
+            // insertData(connection);
+            selectRows(connection);
+        } catch(error) {
+            fsappendFile(err);
+          }
       });
-      insertData(connection);
-    // selectRows(connection);
-  } catch(error) {
-      fs.appendFile('error.log', 'Deu Ruim', (err) => {
-        if (err) 
-            throw err;
-        });
-    }
-});
-
-
-function insertData(conn){
-
-    const sql = "INSERT INTO `teste`.`dados`(`nome`, `descricao`) VALUES ?";
-    const values = [['o script','funcionou']];
-
-    try {
-    conn.query(sql, [values], function (error, results, fields){
-        if(error) throw new Error(error);
-
-
-    
-    })
-    } catch (error)
-            {
-
-            }
 }
 
 //Slave_running : 
@@ -50,28 +30,63 @@ function insertData(conn){
 //performance_schema.replication_connection_status == Slave_IO_Running;
 
 function selectRows(conn){
-    const Slave_IO_Running = 'SELECT SERVICE_STATE FROM performance_schema.replication_connection_status;'
-    const Slave_SQL_Running = 'SELECT SERVICE_STATE FROM performance_schema.replication_applier_status;';
-    
-    conn.query(Slave_IO_Running, function(error, rows){
-        if(error) throw error;
-        console.log(rows[0].SERVICE_STATE);
-        
-        conn.end();
-    });
-
-    conn.query(Slave_SQL_Running, function(error, rows){
-        if(error) throw error;
-        console.log(rows[0].SERVICE_STATE);
-        
-        conn.end();
-    });
-
-    console.log('------------------');
-    console.log(sql1);
+    const Show_Slave_Status = 'SHOW SLAVE STATUS;'
+    let host = conn.config.host;
+    try{
+        conn.query(Show_Slave_Status, function(error, rows){
+            console.log('------------');
+            console.log(host);
+            console.log('------------');        
+            if(error) throw error; 
+            if(!rows.length) {
+                fsappendFile('O host '+host+' não esta com status slave ativo');
+                StatusReplicacao(host)
+                conn.end();
+                return;
+            }                  
+            fsappendFile('A base esta replicando');
+            
+        });
+    } catch (err) {
+        fsappendFile(err);
+    }
 }
 
-function verificandoStatusSlave(Slave_SQL_Running, Slave_IO_Running){
+function StatusReplicacao(Slave_Running_Host){
+    const connection = mysql.createConnection({
+        host:  Slave_Running_Host,
+        port:  port,
+        user: 'user',
+        password:  'user',
+    });
 
+    connection.connect( error => {
+        if(error) throw error;
+        
+        let query = "update mysql_servers set status = 'OFFLINE_HARD' where hostname = '127.0.0.1';"
+        connection.query(query, (err, rows) => {
+        if(err) {
+            fsappendFile(err);
+            connection.end();
+            return;
+        }
+            fsappendFile('Status de replicação alterado com sucesso');
+            let queryupdatestatus = "LOAD MYSQL SERVERS TO RUNTIME;SAVE MYSQL VARIABLES TO DISK; SAVE MYSQL SERVERS TO DISK;";
+            connection.query(queryupdatestatus, error => {
+                if(error) fsappendFile(error);
+
+                connection.end();
+            }), 
+            connection.end();
+        })
+    });
 }
 
+
+function fsappendFile(mensage)  {
+    let path = 'error.log'; 
+    let mensagelog = mensage + '\n'
+    fs.appendFile(path, mensagelog, (err) =>{
+        if (err) throw err;
+    });
+}
