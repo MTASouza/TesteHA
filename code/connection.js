@@ -17,7 +17,7 @@ function connectiondb(host) {
         try {
           if(err) throw new Error(error);
             
-            // insertData(connection);
+
             selectRows(connection);
         } catch(error) {
             fsappendFile(err);
@@ -25,18 +25,11 @@ function connectiondb(host) {
       });
 }
 
-//Slave_running : 
-//performance_schema.replication_applier_status == Slave_SQL_Running;
-//performance_schema.replication_connection_status == Slave_IO_Running;
-
 function selectRows(conn){
     const Show_Slave_Status = 'SHOW SLAVE STATUS;'
     let host = conn.config.host;
     try{
-        conn.query(Show_Slave_Status, function(error, rows){
-            console.log('------------');
-            console.log(host);
-            console.log('------------');        
+        conn.query(Show_Slave_Status, function(error, rows){      
             if(error) throw error; 
             if(!rows.length) {
                 fsappendFile('O host '+host+' não esta com status slave ativo');
@@ -44,7 +37,7 @@ function selectRows(conn){
                 conn.end();
                 return;
             }                  
-            fsappendFile('A base esta replicando');
+            conn.end();
             
         });
     } catch (err) {
@@ -70,7 +63,6 @@ function StatusReplicacao(Slave_Running_Host){
             connection.end();
             return;
         }
-            fsappendFile('Status de replicação alterado com sucesso');
             let queryupdatestatus = "LOAD MYSQL SERVERS TO RUNTIME;SAVE MYSQL VARIABLES TO DISK; SAVE MYSQL SERVERS TO DISK;";
             connection.query(queryupdatestatus, error => {
                 if(error) fsappendFile(error);
